@@ -45,7 +45,7 @@ class DiscordClient:
         GATEWAY_BASE_URL = requests.get(f"{self.API_ENDPOINT}gateway", headers=self.USERAGENT).json().get('url')
         GATEWAY_BASE_URL += ('' if GATEWAY_BASE_URL.endswith('/') else '/')
         parsed = urlparse(GATEWAY_BASE_URL)
-        parsed = parsed._replace(query=urlencode(GATEWAY_PARAMS|dict(parse_qsl(parsed.query))))
+        parsed = parsed._replace(query=urlencode(self.GATEWAY_PARAMS|dict(parse_qsl(parsed.query))))
         GATEWAY_URL = parsed.geturl()
 
     def set_heartbeat(self, heartbeat_interval):
