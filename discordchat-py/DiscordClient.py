@@ -32,6 +32,8 @@ class DiscordClient:
 
         self.redirect_url = redirect_url
 
+        self.update_gateway_get_url()
+
     def set_access_code(self, code):
         self._access_code = code
         self.update_access_token()
@@ -40,13 +42,13 @@ class DiscordClient:
         self.access_token = self.client.oauth.get_access_token(self._auth_code, self.redirect_url)
         self.auth_header = self.AUTH_HEADER_START+self.access_token
 
-    def update_gateway(self):
+    def update_gateway_get_url(self):
         from urllib.parse import urlparse, urlencode, parse_qsl
-        gateway_base_url = requests.get(f"{self.API_ENDPOINT}gateway", headers=self.USERAGENT).json().get('url')
+        gateway_base_url = requests.get(self.API_ENDPOINT+"gateway", headers=self.USERAGENT).json().get('url')
         gateway_base_url += ('' if gateway_base_url.endswith('/') else '/')
         parsed = urlparse(gateway_base_url)
         parsed = parsed._replace(query=urlencode({**self.GATEWAY_PARAMS, **dict(parse_qsl(parsed.query))}))
-        self.gateway_url = parsed.geturl()
+        self.gateway_get_url = parsed.geturl()
 
     def set_heartbeat(self, heartbeat_interval):
         was_set = self.heartbeat_interval != None
