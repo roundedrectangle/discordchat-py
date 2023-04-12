@@ -1,7 +1,9 @@
 from zenora import APIClient, OauthResponse # for getting access token
-from typing import Optional
+from typing import Union, Optional
 from threading import Thread
-import requests
+import requests, json
+from websocket import WebSocketApp
+from time import sleep
 
 class DiscordClient:
     API_VERSION = 10
@@ -11,6 +13,14 @@ class DiscordClient:
     USERAGENT = {"User-Agent": f"DiscordClient ({API_ENDPOINT}, {API_VERSION})"}
     AUTH_HEADER_START = "Authorization: Bearer "
     GATEWAY_PARAMS = {'v': str(API_VERSION), 'encoding': 'json'}
+
+    _access_code: Optional[str] = None
+    access_token: Optional[str] = None
+    heartbeat_interval: Optional[float] = None # in seconds
+    wsa: Optional[WebSocketApp] = None
+    redirect_url: str
+    gateway_get_url: Optional[str] = None
+    last_seq_num: Optional[int] = None
 
     def __init__(self, token: str, secret: str, redirect_url: str, cached_token: Optional[OauthResponse] = None):
         """Token is a bot token
@@ -24,23 +34,24 @@ class DiscordClient:
 
         self.client = APIClient(token, client_secret=secret)
 
-        self._access_code, self.access_token, self.heartbeat_interval = [None]*3
-
-        if cached_token != None:
-            self.access_token = cached_token
-            self.auth_header = self.AUTH_HEADER_START+self.access_token
-
         self.redirect_url = redirect_url
 
         self.update_gateway_get_url()
+
+        if cached_token != None:
+            self.update_access_token(cached_token)
+
+        
 
     def set_access_code(self, code):
         self._access_code = code
         self.update_access_token()
     
-    def update_access_token(self):
-        self.access_token = self.client.oauth.get_access_token(self._auth_code, self.redirect_url)
-        self.auth_header = self.AUTH_HEADER_START+self.access_token
+    def update_access_token(self, cached: Optional[OauthResponse]=None):
+        self.access_token = cached if cached != None else self.client.oauth.get_access_token(self._access_code, self.redirect_url)
+        self.auth_header = self.AUTH_HEADER_START+self.access_token.access_token
+        print('wsa')
+        self.start_wsa()
 
     def update_gateway_get_url(self):
         from urllib.parse import urlparse, urlencode, parse_qsl
@@ -50,11 +61,35 @@ class DiscordClient:
         parsed = parsed._replace(query=urlencode({**self.GATEWAY_PARAMS, **dict(parse_qsl(parsed.query))}))
         self.gateway_get_url = parsed.geturl()
 
-    def set_heartbeat(self, heartbeat_interval):
+    def _on_message(self, _wsa, _data):
+        data = json.loads(_data)
+        op = data.get('op')
+        d = op.get('d', {})
+        s = op.get('s')
+
+        if s != None:
+            self.last_seq_num = s
+        
+        if op == 10: # Hello
+            print('heartbeat interval:')
+            self.set_heartbeat(d.get('heartbeat_interval'))
+        if op == 11:
+            print('connection is not zombied')
+
+    def start_wsa(self):
+        self.wsa = WebSocketApp(self.gateway_get_url, on_message=self._on_message)
+        Thread(target=self.wsa.run_forever).start()
+
+    def set_heartbeat(self, heartbeat_interval): # in milliseconds
         was_set = self.heartbeat_interval != None
-        self.heartbeat_interval = heartbeat_interval
+        self.heartbeat_interval = heartbeat_interval/10
         if not was_set:
             self.start_heartbeating()
 
+    def do_heartbeating(self):
+        while True:
+            sleep(self.heartbeat_interval) # in seconds
+            self.wsa.send(str({"op": 1, "d": self.last_seq_num}))
+
     def start_heartbeating(self):
-        pass
+        Thread(target=self.do_heartbeating).start()
