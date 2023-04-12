@@ -6,7 +6,7 @@ import requests
 class DiscordClient:
     API_VERSION = 10
     API_ENDPOINT = f'https://discord.com/api/v{API_VERSION}/'
-    #self.USERAGENT|{'other':'params'} # python 3.9
+    #self.USERAGENT|{'other':'params'} # python 3.9+
     #{**self.USERAGENT, **{'other':'params'}}
     USERAGENT = {"User-Agent": f"DiscordClient ({API_ENDPOINT}, {API_VERSION})"}
     AUTH_HEADER_START = "Authorization: Bearer "
@@ -42,11 +42,11 @@ class DiscordClient:
 
     def update_gateway(self):
         from urllib.parse import urlparse, urlencode, parse_qsl
-        GATEWAY_BASE_URL = requests.get(f"{self.API_ENDPOINT}gateway", headers=self.USERAGENT).json().get('url')
-        GATEWAY_BASE_URL += ('' if GATEWAY_BASE_URL.endswith('/') else '/')
-        parsed = urlparse(GATEWAY_BASE_URL)
-        parsed = parsed._replace(query=urlencode(self.GATEWAY_PARAMS|dict(parse_qsl(parsed.query))))
-        GATEWAY_URL = parsed.geturl()
+        gateway_base_url = requests.get(f"{self.API_ENDPOINT}gateway", headers=self.USERAGENT).json().get('url')
+        gateway_base_url += ('' if gateway_base_url.endswith('/') else '/')
+        parsed = urlparse(gateway_base_url)
+        parsed = parsed._replace(query=urlencode({**self.GATEWAY_PARAMS, **dict(parse_qsl(parsed.query))}))
+        self.gateway_url = parsed.geturl()
 
     def set_heartbeat(self, heartbeat_interval):
         was_set = self.heartbeat_interval != None
