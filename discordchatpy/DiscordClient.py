@@ -10,8 +10,9 @@ class DiscordClient:
     API_ENDPOINT = f'https://discord.com/api/v{API_VERSION}/'
     #self.USERAGENT|{'other':'params'} # python 3.9+
     #{**self.USERAGENT, **{'other':'params'}}
-    USERAGENT = {"User-Agent": f"DiscordClient ({API_ENDPOINT}, {API_VERSION})"}
-    USERAGENT_PLAIN = f"User-Agent: DiscordClient ({API_ENDPOINT}, {API_VERSION})"
+    WHOAMI = f"DiscordClient ({API_ENDPOINT}, {API_VERSION})"
+    USERAGENT = {"User-Agent": WHOAMI}
+    USERAGENT_PLAIN = f"User-Agent: {WHOAMI}"
     AUTH_HEADER_START = "Authorization: Bearer "
     GATEWAY_PARAMS = {'v': str(API_VERSION), 'encoding': 'json'}
 
@@ -68,6 +69,7 @@ class DiscordClient:
             op = data.get("op")
             d = data.get("d", {})
             s = data.get("s")
+            print(data)
 
             if s != None:
                 self.last_seq_num = s
@@ -75,9 +77,26 @@ class DiscordClient:
             if op == 10: # Hello
                 print('heartbeat interval:'+str(d.get('heartbeat_interval')))
                 self.set_heartbeat(d.get('heartbeat_interval'))
-                self.ws.send(str({"op":2,"d":{"token":self.access_token.access_token,"properties":{"os":"linux","browser":self.USERAGENT.values()[0],"device":self.USERAGENT.values()[0]},}}))
+                identify = {
+                    "op": 2,
+                    "d": {
+                        "token": self.access_token.access_token,
+                        "properties": {
+                            "os": "linux",
+                            "browser": self.WHOAMI,
+                            "device": self.WHOAMI
+                        }
+                    }
+                }
+                print(identify)
+                self.ws.send(json.dumps(identify))
+                print('sent')
+                print(self.ws.recv())
             elif op == 11:
                 print('connection is not zombied')
+            elif op == 0:
+                print('Ready!')
+                print(data)
 
     def run_forever(self):
         self.ws = WebSocket()
@@ -91,16 +110,10 @@ class DiscordClient:
             self.start_heartbeating()
 
     def do_heartbeating(self):
-        print(11)
         self.ws.send(str({"op": 1, "d": self.last_seq_num}))
-        print(self.ws.recv())
-        print(12)
         while True:
-            print(self.heartbeat_interval)
-            sleep(self.heartbeat_interval-0.25) # in seconds
-            print(14)
+            sleep(self.heartbeat_interval) # in seconds
             self.ws.send(str({"op": 1, "d": self.last_seq_num}))
-            print(15)
 
     def start_heartbeating(self):
         Thread(target=self.do_heartbeating).start()
