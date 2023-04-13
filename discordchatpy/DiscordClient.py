@@ -16,7 +16,7 @@ class DiscordClient:
     GATEWAY_PARAMS = {'v': str(API_VERSION), 'encoding': 'json'}
 
     _access_code: Optional[str] = None
-    access_token: Optional[str] = None
+    access_token: Optional[OauthResponse] = None
     heartbeat_interval: Optional[float] = None # in seconds
     ws: Optional[WebSocket] = None
     redirect_url: str
@@ -61,22 +61,24 @@ class DiscordClient:
         self.gateway_get_url = parsed.geturl()
 
     def handle_messages(self):
-        _data = self.ws.recv()
-        if _data in [None, '']: return
-        data = json.loads(_data)
-        op = data.get("op")
-        d = data.get("d", {})
-        s = data.get("s")
+        while True:
+            _data = self.ws.recv()
+            if _data in [None, '']: return
+            data = json.loads(_data)
+            op = data.get("op")
+            d = data.get("d", {})
+            s = data.get("s")
 
-        if s != None:
-            self.last_seq_num = s
-        
-        if op == 10: # Hello
-            print('heartbeat interval:'+str(d.get('heartbeat_interval')))
-            self.set_heartbeat(d.get('heartbeat_interval'))
-        elif op == 11:
-            print('connection is not zombied')
-    
+            if s != None:
+                self.last_seq_num = s
+            
+            if op == 10: # Hello
+                print('heartbeat interval:'+str(d.get('heartbeat_interval')))
+                self.set_heartbeat(d.get('heartbeat_interval'))
+                self.ws.send(str({"op":2,"d":{"token":self.access_token.access_token,"properties":{"os":"linux","browser":self.USERAGENT.values()[0],"device":self.USERAGENT.values()[0]},}}))
+            elif op == 11:
+                print('connection is not zombied')
+
     def run_forever(self):
         self.ws = WebSocket()
         self.ws.connect(self.gateway_get_url, header=[self.USERAGENT_PLAIN])
@@ -89,9 +91,16 @@ class DiscordClient:
             self.start_heartbeating()
 
     def do_heartbeating(self):
+        print(11)
+        self.ws.send(str({"op": 1, "d": self.last_seq_num}))
+        print(self.ws.recv())
+        print(12)
         while True:
-            sleep(self.heartbeat_interval) # in seconds
+            print(self.heartbeat_interval)
+            sleep(self.heartbeat_interval-0.25) # in seconds
+            print(14)
             self.ws.send(str({"op": 1, "d": self.last_seq_num}))
+            print(15)
 
     def start_heartbeating(self):
         Thread(target=self.do_heartbeating).start()
