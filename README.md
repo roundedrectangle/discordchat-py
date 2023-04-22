@@ -1,6 +1,6 @@
 # discordchat-py
 
-Discontinued because I found discord.py-self. For logging in via email & password, just run JavaScript on logging in page. For SailfishOS, see this example: https://github.com/poetaster/harbour-wvex/ .
+Discontinued because I found discord.py-self. For logging in via email & password, just run JavaScript on logging in page.
 
 Not working yet
 
