@@ -1,6 +1,8 @@
 # discordchat-py
 
-Not ready yet
+Discontinued because I found discord.py-self. For logging in via email & password, just run JavaScript on logging in page. For SailfishOS, see this example: https://github.com/poetaster/harbour-wvex/ .
+
+Not working yet
 
 dependencies: zenora, websocket-client, requests, urllib3
 
